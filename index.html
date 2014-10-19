@@ -1,0 +1,336 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+	<title>Triassic Period</title>
+	<style>
+		body
+		{
+			margin: 0;
+			padding: 0;
+			background-color: #ddd;
+			text-align: center;
+		}
+		canvas
+		{
+			margin: 8px 0px;
+			/*border: 2px solid #333;*/
+		}
+		backpack
+		{
+			
+		}
+		.selectedItem
+		{
+			background: #fff;
+			border: 2px solid black;
+		}
+	</style>
+	<script src="bin/pixi.dev.js"></script>
+</head>
+<body>
+	<script src="player.js"></script>
+	<script src="intro.js"></script>
+	<script src="level1.js"></script>
+	<script src="level2.js"></script>
+	<script src="level3.js"></script>
+	<script src="party.js"></script>
+	<script>
+	/*
+	// create an array of assets to load
+	var assetsToLoader = [ "SpriteSheet.json"];
+
+	// create a new loader
+	loader = new PIXI.AssetLoader(assetsToLoader);
+	loader.onComplete = onAssetsLoaded
+	loader.load();
+	*/
+	// draw background
+	// http://www.html5gamedevs.com/topic/1706-basic-tiled-game-performance-enhancement/
+
+	var timer = 0;
+	var animationFrame = 0;
+	
+/*	var items = {
+		"candy": {
+			"image": "candy1"
+		},
+		"card": {
+			"image": "card1"
+		},
+		"glue": {
+			"image": "glue"
+		}
+	}*/
+	
+	var myItems = {};
+	
+	function cellForBlock(map, x, y)
+	{
+		cell = {};
+		if (y < 0 || x < 0 || y >= map.length || x >= map[y].length)
+		{
+			cell.blocking = true;
+			return cell;
+		}
+		
+		var cellname = map[y][x];
+		cell.image = "tiles/" + cellname;
+		cell.blocking = false;
+		cell.alpha = 1;
+		
+		if (cellname == "g" || cellname == "r" || cellname == "t")
+		{
+			cell.image = cell.image + Math.randomIntFromInterval(1,2);
+			cell.alpha = .8;
+		}
+		
+		if (cellname == "r" || cellname == "t")
+		{
+			cell.blocking = true;
+		}
+		
+		if (cellname == "o")
+		{
+			cell.image = "tiles/p";
+			cell.collide = function()
+			{
+				goToLevel(currentLevelNumber-1);
+			}
+		}
+		
+		if (cellname == "p")
+		{
+			cell.collide = function()
+			{
+				alert("Here we go!")
+				goToLevel(currentLevelNumber+1);
+			}
+		}
+		
+		cell.image += ".png";
+		
+		return cell;
+	}
+	
+	function drawMap(map)
+	{
+		var sprites = [];
+		for (var r in map)
+		{
+			for (var c in map[r])
+			{
+				var cell = cellForBlock(map,c,r);
+				if (cell)
+				{
+					var newSprite = PIXI.Sprite.fromImage("");
+					newSprite.position = blocksToPoint(c,r);
+					newSprite.alpha = cell.alpha;
+					newSprite.collide = cell.collide;
+					newSprite.setTexture(new PIXI.Texture.fromImage(cell.image));
+					sprites.push(newSprite);
+				}
+			}
+		}
+		return sprites;
+	}
+	
+	var blockSize = 100;
+
+	// create an new instance of a pixi stage
+	var stage = new PIXI.Stage(0xFFFFFF, true);
+
+	// create a renderer instance.
+	var renderer = PIXI.autoDetectRenderer(12 * blockSize, 6 * blockSize);
+
+	// add the renderer view element to the DOM
+	document.body.appendChild(renderer.view);
+
+	function skinForName(name)
+	{
+		return new PIXI.Texture.fromImage("tp/" + name + (1+animationFrame) + ".png");
+	}
+	
+	Math.randomIntFromInterval = function(min,max)
+	{
+	    return Math.floor(Math.random()*(max-min+1)+min);
+	}
+	Math.sign = function(number)
+	{
+		return number/Math.abs(number);
+	}
+	
+	var pointsEqual = function(p1, p2)
+	{
+		if (!p1 || !p2) return false;
+		return p1.x == p2.x && p1.y == p2.y;
+	}
+	PIXI.Point.prototype.toBlocks = function()
+	{
+		return new PIXI.Point(Math.floor(this.x/blockSize), Math.floor(this.y/blockSize));
+	}
+	PIXI.Point.prototype.fromBlocks = function()
+	{
+		return blocksToPoint(this.x, this.y);
+	}
+	blocksToPoint = function(x, y)
+	{
+		return new PIXI.Point(x*blockSize, y*blockSize);
+	}
+	
+/*	stage.click = function(data)
+	{
+		player.destination = data.global.toBlocks();
+	}*/
+	
+	document.onkeydown = function(e) {
+	    switch (e.keyCode) {
+	        case 37:
+	            currentLevel.player.move(-1,0);
+	            break;
+	        case 38:
+				currentLevel.player.move(0,-1);
+	            break;
+	        case 39:
+				currentLevel.player.move(1,0);
+	            break;
+	        case 40:
+				currentLevel.player.move(0,1);
+	            break;
+	    }
+	};
+	
+	function animate() {
+
+		if (timer == 0)
+		{
+			animationFrame = !animationFrame;
+			for (var i in currentLevel.animatedSprites)
+			{
+				var sprite = currentLevel.animatedSprites[i];
+				if (sprite != currentLevel.player)
+				{
+					sprite.setTexture(skinForName(sprite.textureName));
+				}
+			}
+		}
+		timer = (timer+1)%10;
+		
+		// Moving
+		if (!pointsEqual(currentLevel.player.distanceToNextBlock(),new PIXI.Point(0,0)))
+		{
+			var name = currentLevel.player.textureName;
+			var texture = new PIXI.Texture.fromImage("tp/" + name + (1+(timer>5)) + ".png");
+			currentLevel.player.setTexture(texture);
+		}
+		
+		for (var i in currentLevel.animatedSprites)
+		{
+			currentLevel.animatedSprites[i].animate();
+		}
+		
+		for (var i in currentLevel.sprites)
+		{
+			var sprite = currentLevel.sprites[i];
+			if (!sprite || !sprite.collide) continue;
+
+			if (sprite != currentLevel.player && currentLevel.player.isTouchingSprite(sprite))
+			{
+				if (sprite.touchingPlayer == false)
+				{
+					sprite.touchingPlayer = true;
+					sprite.collide();
+				}
+			}
+			else
+			{
+				sprite.touchingPlayer = false;
+			}
+			
+		}
+		
+		if (text)
+		{
+			if (text.alpha > .2)
+			{
+				text.alpha -= .01;
+			}
+			else
+			{
+				text.alpha = 0;
+			}
+		}
+		
+	    renderer.render(stage);
+	    requestAnimFrame(animate);
+	}
+	
+	function goToLevel(i)
+	{
+		currentLevelNumber = i;
+		if (currentLevel.player.next)
+		{
+			currentLevel.player.position = currentLevel.player.next.fromBlocks();
+		}
+		
+		stage.removeChild(currentLevel.gameContainer);
+		currentLevel = levels[i];
+		stage.addChild(currentLevel.gameContainer);
+		
+		if (currentLevel.start) currentLevel.start();
+		showTitle();
+	}
+	
+	var text;
+	function showTitle()
+	{
+		if (text) stage.removeChild(text);
+		text = new PIXI.Text(currentLevel.title, {font:"70px Arial", fill:"#000"});
+		text.position.x = renderer.width/2 - text.width/2;
+		text.position.y = renderer.height/2 - text.height/2;
+		stage.addChild(text);
+	}
+	
+	var levels = [level0(), level1(), level1b(), level2(), level2b(), level3(), party()];
+	currentLevelNumber = 0;
+	currentLevel = levels[currentLevelNumber];
+	stage.addChild(currentLevel.gameContainer);
+	showTitle();
+
+	// start animating
+	requestAnimFrame(animate);
+	
+	selectedItem = "";
+	function drawBackpack()
+	{
+		var backpack = document.getElementById("backpack");
+		backpack.innerHTML = "";
+		for (i in myItems)
+		{
+			var theClass = "";
+			if (selectedItem == i) theClass = "selectedItem";
+			backpack.innerHTML += '<img class="' + theClass + '" src="items/' + i + '" onclick="selectItem(\'' + i + '\')"/>';
+		}
+	}
+	function selectItem(item)
+	{
+		if (item == selectedItem)
+		{
+			selectedItem = "";
+		}
+		else
+		{
+			selectedItem = item;
+		}
+		
+		drawBackpack();
+	}
+	
+	</script>
+	
+	<div style="width:1200px; margin:auto; text-align:left;">
+	<img src="items/backpack.png" style="display:inline;" />
+	<span id="backpack"></span>
+	</div>
+
+	</body>
+</html>
